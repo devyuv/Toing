@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#ff5a36"><link rel="manifest" href="manifest.json"><link rel="stylesheet" href="style.css"><title>TOING Admin</title></head>
+<body>
+<header class="topbar"><div><div class="brand">TOING<span>•</span></div><div class="sub">Restaurant Manager</div></div><a class="btn neutral" href="index.html">Customer App</a></header>
+<main class="admin-wrap">
+<div class="admin-card"><h2>Admin login</h2><p class="meta">Demo-only local admin. For a real public app, replace this with server-side authentication before deployment.</p>
+<div class="field"><label>Admin PIN</label><input id="pin" type="password" inputmode="numeric" placeholder="Enter demo PIN"></div><div class="admin-actions"><button class="btn primary" id="login">Unlock</button></div><p class="meta">Demo PIN: <strong>1234</strong></p></div>
+<section id="panel" class="hidden">
+<div class="admin-card"><h2 id="formTitle">Add restaurant</h2>
+<input id="rid" type="hidden"><div class="form-grid">
+<div class="field"><label>Name</label><input id="name" required></div>
+<div class="field"><label>Category</label><select id="category"><option>Indian</option><option>Chinese</option><option>Fast Food</option><option>Biryani</option><option>Cafe</option></select></div>
+<div class="field"><label>Public/authorized phone</label><input id="phone" type="tel" placeholder="+91..."></div>
+<div class="field"><label>Area</label><input id="area" placeholder="e.g. Mangal Bazar"></div>
+<div class="field wide"><label>Address</label><textarea id="address"></textarea></div>
+<div class="field"><label>Hours</label><input id="hours" placeholder="11 AM – 10 PM"></div>
+<div class="field"><label>Image URL</label><input id="image" placeholder="https://..."></div>
+<div class="field"><label>Tags (comma separated)</label><input id="tags" placeholder="Biryani, Indian"></div>
+</div>
+<h3>Menu</h3><div id="menuEditor"></div>
+<div class="admin-actions"><button class="btn neutral" id="addItem">+ Add menu item</button><button class="btn primary" id="saveRestaurant">Save restaurant</button><button class="btn neutral" id="clearForm">Clear</button></div>
+</div>
+<div class="admin-card"><h2>Restaurants</h2><div id="adminList"></div></div>
+<div class="admin-card"><h3>Data backup</h3><p class="meta">Export your local restaurant database before clearing browser data or changing devices.</p><div class="admin-actions"><button class="btn neutral" id="export">Export JSON</button><label class="btn neutral" for="importFile">Import JSON</label><input id="importFile" type="file" accept=".json" hidden></div></div>
+</section></main>
+<script src="data.js"></script><script>
+const KEY="toing_restaurants_v1";let data=JSON.parse(localStorage.getItem(KEY)||"null")||DEFAULT_RESTAURANTS;
+const $=s=>document.querySelector(s), esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[c]));
+$("#login").onclick=()=>{if($("#pin").value==="1234"){$("#panel").classList.remove("hidden");$("#pin").parentElement.parentElement.classList.add("hidden");renderList();newForm()}else alert("Incorrect PIN")};
+function persist(){localStorage.setItem(KEY,JSON.stringify(data))}
+function menuRows(items=[]){$("#menuEditor").innerHTML=items.map((m,i)=>`<div class="admin-card menu-edit"><div class="form-grid"><div class="field"><label>Item</label><input class="mi-name" value="${esc(m.name)}"></div><div class="field"><label>Price ₹</label><input class="mi-price" type="number" value="${esc(m.price)}"></div><div class="field wide"><label>Description</label><input class="mi-desc" value="${esc(m.desc||"")}"></div></div><button class="btn danger remove-item">Remove</button></div>`).join("")}
+function readMenu(){return [...document.querySelectorAll(".menu-edit")].map(x=>({name:x.querySelector(".mi-name").value,price:Number(x.querySelector(".mi-price").value)||0,desc:x.querySelector(".mi-desc").value}))}
+function newForm(){["rid","name","phone","area","address","hours","image","tags"].forEach(id=>$("#"+id).value="");$("#category").value="Indian";menuRows([]);$("#formTitle").textContent="Add restaurant"}
+$("#addItem").onclick=()=>{const arr=readMenu();arr.push({name:"",price:0,desc:""});menuRows(arr)}
+document.addEventListener("click",e=>{if(e.target.classList.contains("remove-item")){e.target.closest(".menu-edit").remove()}});
+$("#clearForm").onclick=newForm;
+$("#saveRestaurant").onclick=()=>{const name=$("#name").value.trim();if(!name)return alert("Restaurant name is required.");const id=$("#rid").value||("r-"+Date.now());const old=data.find(x=>x.id===id);const r={id,name,category:$("#category").value,phone:$("#phone").value.trim(),area:$("#area").value.trim(),address:$("#address").value.trim(),hours:$("#hours").value.trim(),image:$("#image").value.trim(),tags:$("#tags").value.split(",").map(x=>x.trim()).filter(Boolean),menu:readMenu()};if(old)Object.assign(old,r);else data.push(r);persist();renderList();newForm();alert("Saved on this device.")};
+function renderList(){$("#adminList").innerHTML=data.map(r=>`<div class="admin-card"><strong>${esc(r.name)}</strong><div class="meta">${esc(r.category)} · ${esc(r.phone||"No phone")}</div><div class="admin-actions"><button class="btn neutral edit" data-id="${esc(r.id)}">Edit</button><button class="btn danger del" data-id="${esc(r.id)}">Delete</button></div></div>`).join("")}
+document.addEventListener("click",e=>{if(e.target.classList.contains("edit")){const r=data.find(x=>x.id===e.target.dataset.id);if(!r)return;$("#rid").value=r.id;$("#name").value=r.name;$("#category").value=r.category;$("#phone").value=r.phone||"";$("#area").value=r.area||"";$("#address").value=r.address||"";$("#hours").value=r.hours||"";$("#image").value=r.image||"";$("#tags").value=(r.tags||[]).join(", ");menuRows(r.menu||[]);$("#formTitle").textContent="Edit restaurant";scrollTo({top:0,behavior:"smooth"})}if(e.target.classList.contains("del")){if(confirm("Delete this restaurant?")){data=data.filter(x=>x.id!==e.target.dataset.id);persist();renderList()}}});
+$("#export").onclick=()=>{const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"}),a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="toing-restaurants.json";a.click();URL.revokeObjectURL(a.href)};
+$("#importFile").onchange=e=>{const f=e.target.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{try{const x=JSON.parse(rd.result);if(!Array.isArray(x))throw 0;data=x;persist();renderList();alert("Imported.")}catch{alert("Invalid JSON file.")}};rd.readAsText(f)};
+</script></body></html>
